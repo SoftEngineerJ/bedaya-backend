@@ -174,7 +174,7 @@ public class EmailService {
                                                 "- مراجعة الطلب خلال 2-4 ساعات\n" +
                                                 "- التواصل معك خلال 24 ساعة\n" +
                                                 "- تحديد موعد الاستشارة الأولى\n\n" +
-                                                "info@studentenhilfe.de",
+                                                "info@bedaya-study.com",
                                 bookingRequest.getFirstName(),
                                 bookingRequest.getLastName(),
                                 bookingRequest.getEmail(),
@@ -363,8 +363,7 @@ public class EmailService {
                                 + "; border:1px solid #e2e8f0; border-radius:14px; overflow:hidden;\">" +
                                 "<div style=\"padding:20px 24px; background:linear-gradient(135deg, " + BRAND_DARK
                                 + " 0%, #1e3a8a 100%);\">" +
-                                "<table role=\"presentation\" cellpadding=\"0\" cellspacing=\"0\" width=\"100%\">"
-                                +
+                                "<table role=\"presentation\" cellpadding=\"0\" cellspacing=\"0\" width=\"100%\">" +
                                 "<tr>" +
                                 "<td style=\"vertical-align:middle;\">" +
                                 "<img src=\"" + logoSrc
@@ -384,11 +383,10 @@ public class EmailService {
                                 + ";\">" + safe(title) + "</div>" +
                                 innerHtml +
                                 "</div>" +
-                                "<div style=\"padding:16px 24px; border-top:1px solid #e2e8f0; background:#f1f5f9;\">"
-                                +
+                                "<div style=\"padding:16px 24px; border-top:1px solid #e2e8f0; background:#f1f5f9;\">" +
                                 "<div style=\"color:" + BRAND_MUTED + "; font-size:12px; line-height:1.6;\">" +
                                 "فريق بداية — شريكك في التعليم<br>" +
-                                "<span style=\"direction:ltr; unicode-bidi:bidi-override;\">info@studentenhilfe.de</span>"
+                                "<span style=\"direction:ltr; unicode-bidi:bidi-override;\">info@bedaya-study.com</span>"
                                 +
                                 "</div>" +
                                 "</div>" +
