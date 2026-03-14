@@ -102,7 +102,8 @@ public class EmailService {
                         throw new IllegalStateException("BREVO_API_KEY is not set");
                 }
 
-                String payload = buildBrevoPayload(to, fromEmail, subject, text, html, true);
+                boolean includeInlineLogo = publicLogoUrl == null || publicLogoUrl.isBlank();
+                String payload = buildBrevoPayload(to, fromEmail, subject, text, html, includeInlineLogo);
 
                 HttpClient client = HttpClient.newHttpClient();
                 HttpRequest request = HttpRequest.newBuilder()
