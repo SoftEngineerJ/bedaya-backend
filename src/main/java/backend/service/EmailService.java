@@ -4,19 +4,15 @@ import backend.entity.Contact;
 import backend.model.ContactRequest;
 import backend.model.BookingRequest;
 import backend.repository.ContactRepository;
-import com.sendgrid.Method;
-import com.sendgrid.Request;
-import com.sendgrid.Response;
-import com.sendgrid.SendGrid;
-import com.sendgrid.helpers.mail.Mail;
-import com.sendgrid.helpers.mail.objects.Content;
-import com.sendgrid.helpers.mail.objects.Email;
-import com.sendgrid.helpers.mail.objects.Personalization;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
-import java.io.IOException;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.nio.charset.StandardCharsets;
 
 @Service
 public class EmailService {
@@ -24,7 +20,7 @@ public class EmailService {
         @Autowired
         private ContactRepository contactRepository;
 
-        private final String sendGridApiKey = System.getenv("SENDGRID_API_KEY");
+        private final String brevoApiKey = System.getenv("BREVO_API_KEY");
         private final String fromEmail = System.getenv().getOrDefault("MAIL_FROM", "no-reply@bedaya.local");
         private final String adminEmail = System.getenv().getOrDefault("MAIL_ADMIN_TO", "mazroo.develop@gmail.com");
 
@@ -44,7 +40,7 @@ public class EmailService {
 
                 contactRepository.save(contact);
 
-                // Send email via SendGrid
+                // Send email via Brevo
                 String subject = "Neue Kontaktanfrage von: " + contactRequest.getName();
                 String text = buildEmailText(contactRequest);
                 sendEmail(adminEmail, subject, text);
@@ -81,34 +77,52 @@ public class EmailService {
         }
 
         private void sendEmail(String to, String subject, String text) {
-                if (sendGridApiKey == null || sendGridApiKey.isBlank()) {
-                        throw new IllegalStateException("SENDGRID_API_KEY is not set");
+                if (brevoApiKey == null || brevoApiKey.isBlank()) {
+                        throw new IllegalStateException("BREVO_API_KEY is not set");
                 }
 
-                Email from = new Email(fromEmail);
-                Email recipient = new Email(to);
-                Content content = new Content("text/plain", text);
-                Mail mail = new Mail(from, subject, recipient, content);
+                String payload = buildBrevoPayload(to, fromEmail, subject, text);
 
-                Personalization personalization = new Personalization();
-                personalization.addTo(recipient);
-                mail.addPersonalization(personalization);
+                HttpClient client = HttpClient.newHttpClient();
+                HttpRequest request = HttpRequest.newBuilder()
+                                .uri(URI.create("https://api.brevo.com/v3/smtp/email"))
+                                .header("accept", "application/json")
+                                .header("content-type", "application/json")
+                                .header("api-key", brevoApiKey)
+                                .POST(HttpRequest.BodyPublishers.ofString(payload, StandardCharsets.UTF_8))
+                                .build();
 
-                SendGrid sg = new SendGrid(sendGridApiKey);
-                Request request = new Request();
                 try {
-                        request.setMethod(Method.POST);
-                        request.setEndpoint("mail/send");
-                        request.setBody(mail.build());
-                        Response response = sg.api(request);
-                        int statusCode = response.getStatusCode();
+                        HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+                        int statusCode = response.statusCode();
                         if (statusCode < 200 || statusCode >= 300) {
-                                throw new IllegalStateException("SendGrid failed with status " + statusCode + ": "
-                                                + response.getBody());
+                                throw new IllegalStateException(
+                                                "Brevo failed with status " + statusCode + ": " + response.body());
                         }
-                } catch (IOException e) {
-                        throw new IllegalStateException("SendGrid request failed: " + e.getMessage(), e);
+                } catch (Exception e) {
+                        throw new IllegalStateException("Brevo request failed: " + e.getMessage(), e);
                 }
+        }
+
+        private String buildBrevoPayload(String toEmail, String fromEmail, String subject, String text) {
+                return "{" +
+                                "\"sender\":{\"email\":\"" + jsonEscape(fromEmail) + "\"}," +
+                                "\"to\":[{\"email\":\"" + jsonEscape(toEmail) + "\"}]," +
+                                "\"subject\":\"" + jsonEscape(subject) + "\"," +
+                                "\"textContent\":\"" + jsonEscape(text) + "\"" +
+                                "}";
+        }
+
+        private String jsonEscape(String value) {
+                if (value == null) {
+                        return "";
+                }
+                return value
+                                .replace("\\", "\\\\")
+                                .replace("\"", "\\\"")
+                                .replace("\r", "\\r")
+                                .replace("\n", "\\n")
+                                .replace("\t", "\\t");
         }
 
         private String buildBookingConfirmationText(BookingRequest bookingRequest) {
