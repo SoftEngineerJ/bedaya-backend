@@ -17,11 +17,7 @@ public class SecurityConfig implements WebMvcConfigurer {
         http
                 .csrf(csrf -> csrf.disable())
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/**").permitAll()
-                        .requestMatchers("/swagger-ui/**").permitAll()
-                        .requestMatchers("/v3/api-docs/**").permitAll()
-                        .requestMatchers("/actuator/**").permitAll()
-                        .anyRequest().authenticated())
+                        .anyRequest().permitAll())
                 .cors(cors -> cors.configure(http));
         return http.build();
     }
