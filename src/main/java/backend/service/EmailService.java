@@ -1,34 +1,53 @@
 package backend.service;
 
 import backend.entity.Contact;
+
 import backend.model.ContactRequest;
+
 import backend.model.BookingRequest;
+
 import backend.repository.ContactRepository;
+
 import org.springframework.beans.factory.annotation.Autowired;
+
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+
 import java.net.URI;
+
 import java.net.http.HttpClient;
+
 import java.net.http.HttpRequest;
+
 import java.net.http.HttpResponse;
+
 import java.nio.charset.StandardCharsets;
 
 @Service
+
 public class EmailService {
 
         @Autowired
+
         private ContactRepository contactRepository;
 
         private final String brevoApiKey = System.getenv("BREVO_API_KEY");
+
         private final String fromEmail = System.getenv().getOrDefault("MAIL_FROM", "no-reply@bedaya.local");
+
         private final String adminEmail = System.getenv().getOrDefault("MAIL_ADMIN_TO", "mazroo.develop@gmail.com");
+
         private final String publicLogoUrl = System.getenv().getOrDefault("MAIL_LOGO_URL", "");
 
         private static final String BRAND_DARK = "#0f172a";
+
         private static final String BRAND_TEXT = "#0f172a";
+
         private static final String BRAND_MUTED = "#64748b";
+
         private static final String BRAND_BG = "#f8fafc";
+
         private static final String BRAND_CARD = "#ffffff";
 
         private static final String LOGO_CID = "bedaya-logo";
@@ -38,388 +57,721 @@ public class EmailService {
         public void sendContactEmail(ContactRequest contactRequest) {
 
                 // Save to database
+
                 Contact contact = new Contact();
+
                 contact.setType(Contact.ContactType.CONTACT);
+
                 contact.setName(contactRequest.getName());
+
                 contact.setEmail(contactRequest.getEmail());
+
                 contact.setPhone(contactRequest.getPhone());
+
                 contact.setCountry(contactRequest.getCountry());
+
                 contact.setService(contactRequest.getService());
+
                 contact.setMessage(contactRequest.getMessage());
+
                 contact.setCreatedAt(LocalDateTime.now());
+
                 contact.setStatus(Contact.ContactStatus.NEW);
 
                 contactRepository.save(contact);
 
                 // Send email via Brevo
+
                 String subject = "Neue Kontaktanfrage von: " + contactRequest.getName();
+
                 String text = buildEmailText(contactRequest);
+
                 String html = buildAdminContactHtml(contactRequest);
+
                 sendEmail(adminEmail, subject, text, html);
 
                 // Send confirmation email to user
+
                 sendEmail(
+
                                 contactRequest.getEmail(),
+
                                 "تم استلام رسالتك بنجاح - بداية",
+
                                 buildContactConfirmationText(contactRequest),
+
                                 buildContactConfirmationHtml(contactRequest));
+
         }
 
         public void sendBookingEmail(BookingRequest bookingRequest) {
 
                 // Save to database (reuse Contact entity for now)
+
                 Contact contact = new Contact();
+
                 contact.setType(Contact.ContactType.BOOKING);
+
                 contact.setName(bookingRequest.getFirstName() + " " + bookingRequest.getLastName());
+
                 contact.setEmail(bookingRequest.getEmail());
+
                 contact.setPhone(bookingRequest.getPhone());
+
                 contact.setCountry(bookingRequest.getCountry());
+
                 contact.setService(bookingRequest.getDesiredService());
+
                 contact.setMessage(bookingRequest.getMessage() + "\n\nStudy Level: " + bookingRequest.getStudyLevel());
+
                 contact.setCreatedAt(LocalDateTime.now());
+
                 contact.setStatus(Contact.ContactStatus.NEW);
 
                 contactRepository.save(contact);
 
                 // Send confirmation email to customer
+
                 sendEmail(
+
                                 bookingRequest.getEmail(),
+
                                 "تأكيد استلام طلبك - بداية",
+
                                 buildBookingConfirmationText(bookingRequest),
+
                                 buildBookingConfirmationHtml(bookingRequest));
 
                 // Send notification email to admin
+
                 sendEmail(
+
                                 adminEmail,
+
                                 "طلب جديد: " + bookingRequest.getDesiredService() + " - "
+
                                                 + bookingRequest.getFirstName() + " " + bookingRequest.getLastName(),
+
                                 buildBookingAdminText(bookingRequest),
+
                                 buildBookingAdminHtml(bookingRequest));
+
         }
 
         private void sendEmail(String to, String subject, String text, String html) {
+
                 if (brevoApiKey == null || brevoApiKey.isBlank()) {
+
                         throw new IllegalStateException("BREVO_API_KEY is not set");
+
                 }
 
                 boolean includeInlineLogo = publicLogoUrl == null || publicLogoUrl.isBlank();
+
                 String payload = buildBrevoPayload(to, fromEmail, subject, text, html, includeInlineLogo);
 
                 HttpClient client = HttpClient.newHttpClient();
+
                 HttpRequest request = HttpRequest.newBuilder()
+
                                 .uri(URI.create("https://api.brevo.com/v3/smtp/email"))
+
                                 .header("accept", "application/json")
+
                                 .header("content-type", "application/json")
+
                                 .header("api-key", brevoApiKey)
+
                                 .POST(HttpRequest.BodyPublishers.ofString(payload, StandardCharsets.UTF_8))
+
                                 .build();
 
                 try {
+
                         HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+
                         int statusCode = response.statusCode();
+
                         if (statusCode < 200 || statusCode >= 300) {
+
                                 throw new IllegalStateException(
+
                                                 "Brevo failed with status " + statusCode + ": " + response.body());
+
                         }
+
                 } catch (Exception e) {
+
                         throw new IllegalStateException("Brevo request failed: " + e.getMessage(), e);
+
                 }
+
         }
 
         private String buildBrevoPayload(String toEmail, String fromEmail, String subject, String text, String html,
+
                         boolean includeInlineLogo) {
+
                 String safeHtml = html == null ? "" : html;
+
                 String attachments = "";
+
                 if (includeInlineLogo) {
+
                         attachments = ",\"attachment\":[{" +
+
                                         "\"content\":\"" + LOGO_BASE64_PNG + "\"," +
+
                                         "\"name\":\"bedaya-logo.png\"," +
+
                                         "\"contentType\":\"image/png\"," +
+
                                         "\"contentId\":\"" + LOGO_CID + "\"" +
+
                                         "}]";
+
                 }
 
                 return "{" +
+
                                 "\"sender\":{\"email\":\"" + jsonEscape(fromEmail) + "\"}," +
+
                                 "\"to\":[{\"email\":\"" + jsonEscape(toEmail) + "\"}]," +
+
                                 "\"subject\":\"" + jsonEscape(subject) + "\"," +
+
                                 "\"textContent\":\"" + jsonEscape(text) + "\"," +
+
                                 "\"htmlContent\":\"" + jsonEscape(safeHtml) + "\"" +
+
                                 attachments +
+
                                 "}";
+
         }
 
         private String jsonEscape(String value) {
+
                 if (value == null) {
+
                         return "";
+
                 }
+
                 return value
+
                                 .replace("\\", "\\\\")
+
                                 .replace("\"", "\\\"")
+
                                 .replace("\r", "\\r")
+
                                 .replace("\n", "\\n")
+
                                 .replace("\t", "\\t");
+
         }
 
         private String buildBookingConfirmationText(BookingRequest bookingRequest) {
+
                 return String.format(
+
                                 "شكراً لتواصلك مع بداية!\n\n" +
+
                                                 "تم استلام طلبك بنجاح:\n\n" +
+
                                                 "الاسم: %s %s\n" +
+
                                                 "البريد: %s\n" +
+
                                                 "الهاتف: %s\n" +
+
                                                 "الخدمة: %s\n" +
+
                                                 "المستوى: %s\n\n" +
+
                                                 "الخطوات التالية:\n" +
+
                                                 "- مراجعة الطلب خلال 2-4 ساعات\n" +
+
                                                 "- التواصل معك خلال 24 ساعة\n" +
+
                                                 "- تحديد موعد الاستشارة الأولى\n\n" +
+
                                                 "info@bedaya-study.com",
+
                                 bookingRequest.getFirstName(),
+
                                 bookingRequest.getLastName(),
+
                                 bookingRequest.getEmail(),
+
                                 bookingRequest.getPhone(),
+
                                 bookingRequest.getDesiredService(),
+
                                 bookingRequest.getStudyLevel());
+
         }
 
         private String buildBookingConfirmationHtml(BookingRequest bookingRequest) {
+
                 String title = "تم استلام طلبك بنجاح";
+
                 String body = "<p style=\"margin:0 0 12px 0;\">شكراً لتواصلك مع <b>بداية</b>.</p>" +
+
                                 "<p style=\"margin:0 0 16px 0;\">تم استلام طلبك بنجاح، وسنقوم بمراجعته والتواصل معك خلال 24 ساعة.</p>"
+
                                 +
+
                                 detailsTable(new String[][] {
+
                                                 { "الاسم", safe(bookingRequest.getFirstName() + " "
+
                                                                 + bookingRequest.getLastName()) },
+
                                                 { "البريد الإلكتروني", safe(bookingRequest.getEmail()) },
+
                                                 { "الهاتف", safe(bookingRequest.getPhone()) },
+
                                                 { "الخدمة", safe(bookingRequest.getDesiredService()) },
+
                                                 { "المستوى", safe(bookingRequest.getStudyLevel()) }
+
                                 }) +
+
                                 (bookingRequest.getMessage() == null || bookingRequest.getMessage().isBlank()
+
                                                 ? ""
+
                                                 : section("رسالتك", "<p style=\"margin:0; white-space:pre-wrap;\">"
+
                                                                 + safe(bookingRequest.getMessage()) + "</p>"));
+
                 return wrapEmailHtml(title, body);
+
         }
 
         private String buildContactConfirmationText(ContactRequest contactRequest) {
+
                 return String.format(
+
                                 "شكراً لتواصلك مع بداية!\n\n" +
+
                                                 "لقد استلمنا رسالتك بنجاح وسنتواصل معك في أقرب وقت ممكن.\n\n" +
+
                                                 "بياناتك:\n" +
+
                                                 "الاسم: %s\n" +
+
                                                 "البريد الإلكتروني: %s\n" +
+
                                                 "%s" +
+
                                                 "%s" +
+
                                                 "الرسالة:\n%s\n\n" +
+
                                                 "فريق بداية",
+
                                 contactRequest.getName(),
+
                                 contactRequest.getEmail(),
+
                                 contactRequest.getPhone() == null || contactRequest.getPhone().isBlank()
+
                                                 ? ""
+
                                                 : "الهاتف: " + contactRequest.getPhone() + "\n",
+
                                 contactRequest.getService() == null || contactRequest.getService().isBlank()
+
                                                 ? ""
+
                                                 : "الخدمة: " + contactRequest.getService() + "\n",
+
                                 contactRequest.getMessage());
+
         }
 
         private String buildContactConfirmationHtml(ContactRequest contactRequest) {
+
                 String title = "تم استلام رسالتك بنجاح";
+
                 String body = "<p style=\"margin:0 0 12px 0;\">شكراً لتواصلك مع <b>بداية</b>.</p>" +
+
                                 "<p style=\"margin:0 0 16px 0;\">لقد استلمنا رسالتك وسنتواصل معك في أقرب وقت ممكن.</p>"
+
                                 +
+
                                 detailsTable(new String[][] {
+
                                                 { "الاسم", safe(contactRequest.getName()) },
+
                                                 { "البريد الإلكتروني", safe(contactRequest.getEmail()) },
+
                                                 { "الهاتف", safeNullable(contactRequest.getPhone()) },
+
                                                 { "الخدمة", safeNullable(contactRequest.getService()) }
+
                                 }) +
+
                                 section("رسالتك", "<p style=\"margin:0; white-space:pre-wrap;\">"
+
                                                 + safe(contactRequest.getMessage()) + "</p>");
+
                 return wrapEmailHtml(title, body);
+
         }
 
         private String buildBookingAdminText(BookingRequest bookingRequest) {
+
                 return String.format(
+
                                 "🚨 طلب جديد!\n\n" +
+
                                                 "معلومات العميل:\n" +
+
                                                 "الاسم: %s %s\n" +
+
                                                 "البريد: %s\n" +
+
                                                 "الهاتف: %s\n" +
+
                                                 "البلد: %s\n" +
+
                                                 "الخدمة: %s\n" +
+
                                                 "المستوى: %s\n\n" +
+
                                                 "الرسالة:\n%s\n\n" +
+
                                                 "إجراءات فورية:\n" +
+
                                                 "1. مراجعة الطلب فوراً\n" +
+
                                                 "2. التواصل مع العميل خلال 24 ساعة\n" +
+
                                                 "3. تحديد موعد استشارة\n" +
+
                                                 "4. إعداد عرض سعر مخصص",
+
                                 bookingRequest.getFirstName(),
+
                                 bookingRequest.getLastName(),
+
                                 bookingRequest.getEmail(),
+
                                 bookingRequest.getPhone(),
+
                                 bookingRequest.getCountry(),
+
                                 bookingRequest.getDesiredService(),
+
                                 bookingRequest.getStudyLevel(),
+
                                 bookingRequest.getMessage());
+
         }
 
         private String buildBookingAdminHtml(BookingRequest bookingRequest) {
+
                 String title = "طلب جديد";
+
                 String body = "<p style=\"margin:0 0 12px 0;\">تم استلام <b>طلب جديد</b>.</p>" +
+
                                 detailsTable(new String[][] {
+
                                                 { "الاسم", safe(bookingRequest.getFirstName() + " "
+
                                                                 + bookingRequest.getLastName()) },
+
                                                 { "البريد الإلكتروني", safe(bookingRequest.getEmail()) },
+
                                                 { "الهاتف", safe(bookingRequest.getPhone()) },
+
                                                 { "البلد", safe(bookingRequest.getCountry()) },
+
                                                 { "الخدمة", safe(bookingRequest.getDesiredService()) },
+
                                                 { "المستوى", safe(bookingRequest.getStudyLevel()) }
+
                                 }) +
+
                                 section("الرسالة", "<p style=\"margin:0; white-space:pre-wrap;\">"
+
                                                 + safe(bookingRequest.getMessage()) + "</p>");
+
                 return wrapEmailHtml(title, body);
+
         }
 
         private String buildEmailText(ContactRequest contactRequest) {
+
                 return String.format(
+
                                 "Neue Kontaktanfrage erhalten:\n\n" +
+
                                                 "Name: %s\n" +
+
                                                 "Email: %s\n" +
+
                                                 "Telefon: %s\n" +
+
                                                 "Land: %s\n" +
+
                                                 "Service: %s\n\n" +
+
                                                 "Nachricht:\n%s",
+
                                 contactRequest.getName(),
+
                                 contactRequest.getEmail(),
+
                                 contactRequest.getPhone(),
+
                                 contactRequest.getCountry(),
+
                                 contactRequest.getService(),
+
                                 contactRequest.getMessage());
+
         }
 
         private String buildAdminContactHtml(ContactRequest contactRequest) {
+
                 String title = "Kontaktanfrage";
+
                 String body = "<p style=\"margin:0 0 12px 0;\">Neue Kontaktanfrage erhalten.</p>" +
+
                                 detailsTable(new String[][] {
+
                                                 { "Name", safe(contactRequest.getName()) },
+
                                                 { "Email", safe(contactRequest.getEmail()) },
+
                                                 { "Telefon", safeNullable(contactRequest.getPhone()) },
+
                                                 { "Land", safeNullable(contactRequest.getCountry()) },
+
                                                 { "Service", safeNullable(contactRequest.getService()) }
+
                                 }) +
+
                                 section("Nachricht",
+
                                                 "<p style=\"margin:0; white-space:pre-wrap;\">"
+
                                                                 + safe(contactRequest.getMessage())
+
                                                                 + "</p>");
+
                 return wrapEmailHtml(title, body);
+
         }
 
         private String detailsTable(String[][] rows) {
+
                 StringBuilder sb = new StringBuilder();
+
                 sb.append(
+
                                 "<table role=\"presentation\" cellpadding=\"0\" cellspacing=\"0\" width=\"100%\" style=\"border-collapse:separate; border-spacing:0; border:1px solid #e2e8f0; border-radius:12px; overflow:hidden;\">");
+
                 for (int i = 0; i < rows.length; i++) {
+
                         String label = rows[i][0];
+
                         String value = rows[i][1];
+
                         if (value == null || value.isBlank()) {
+
                                 continue;
+
                         }
+
                         sb.append("<tr>");
+
                         sb.append(
+
                                         "<td style=\"padding:10px 12px; background:#f8fafc; color:" + BRAND_MUTED
+
                                                         + "; font-size:12px; width:34%; border-bottom:1px solid #e2e8f0;\">")
+
                                         .append(safe(label))
+
                                         .append("</td>");
+
                         sb.append(
+
                                         "<td style=\"padding:10px 12px; background:#ffffff; color:" + BRAND_TEXT
+
                                                         + "; font-size:13px; border-bottom:1px solid #e2e8f0;\">")
+
                                         .append(safe(value))
+
                                         .append("</td>");
+
                         sb.append("</tr>");
+
                 }
+
                 sb.append("</table>");
+
                 return sb.toString();
+
         }
 
         private String wrapEmailHtml(String title, String innerHtml) {
+
                 String logoSrc = "cid:" + LOGO_CID;
+
                 if (publicLogoUrl != null && !publicLogoUrl.isBlank()) {
+
                         logoSrc = safe(publicLogoUrl);
+
                 }
+
                 return "<!doctype html>" +
+
                                 "<html lang=\"ar\" dir=\"rtl\">" +
+
                                 "<head>" +
+
                                 "<meta charset=\"utf-8\">" +
+
                                 "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">" +
+
                                 "</head>" +
+
                                 "<body style=\"margin:0; padding:0; background:" + BRAND_BG + "; color:" + BRAND_TEXT
+
                                 + "; font-family:Tahoma, Arial, sans-serif;\">" +
+
                                 "<div style=\"max-width:640px; margin:0 auto; padding:24px;\">" +
+
                                 "<div style=\"background:" + BRAND_CARD
+
                                 + "; border:1px solid #e2e8f0; border-radius:14px; overflow:hidden;\">" +
+
                                 "<div style=\"padding:20px 24px; background:linear-gradient(135deg, " + BRAND_DARK
+
                                 + " 0%, #1e3a8a 100%);\">" +
-                                "<table role=\"presentation\" cellpadding=\"0\" cellspacing=\"0\" width=\"100%\">" +
+
+                                "<table role=\"presentation\" cellpadding=\"0\" cellspacing=\"0\" width=\"100%\">"
+
+                                +
+
                                 "<tr>" +
+
                                 "<td style=\"vertical-align:middle;\">" +
+
                                 "<img src=\"" + logoSrc
+
                                 + "\" alt=\"Bedaya\" width=\"56\" height=\"56\" style=\"display:block; width:56px; height:56px;\">"
+
                                 +
+
                                 "</td>" +
+
                                 "<td style=\"vertical-align:middle; text-align:right;\">" +
+
                                 "<div style=\"color:#ffffff; font-size:18px; font-weight:700;\">بداية</div>" +
+
                                 "<div style=\"color:rgba(255,255,255,0.85); font-size:12px; margin-top:2px;\">"
+
                                 + safe(title) + "</div>" +
+
                                 "</td>" +
+
                                 "</tr>" +
+
                                 "</table>" +
+
                                 "</div>" +
+
                                 "<div style=\"padding:22px 24px;\">" +
+
                                 "<div style=\"font-size:20px; font-weight:700; margin:0 0 12px 0; color:" + BRAND_DARK
+
                                 + ";\">" + safe(title) + "</div>" +
+
                                 innerHtml +
+
                                 "</div>" +
-                                "<div style=\"padding:16px 24px; border-top:1px solid #e2e8f0; background:#f1f5f9;\">" +
-                                "<div style=\"color:" + BRAND_MUTED + "; font-size:12px; line-height:1.6;\">" +
-                                "فريق بداية — شريكك في التعليم<br>" +
-                                "<span style=\"direction:ltr; unicode-bidi:bidi-override;\">info@bedaya-study.com</span>"
+
+                                "<div style=\"padding:16px 24px; border-top:1px solid #e2e8f0; background:#f1f5f9;\">"
+
                                 +
+
+                                "<div style=\"color:" + BRAND_MUTED + "; font-size:12px; line-height:1.6;\">" +
+
+                                "فريق بداية — شريكك في التعليم<br>" +
+
+                                "<span style=\"direction:ltr; unicode-bidi:bidi-override;\">info@bedaya-study.com</span>"
+
+                                +
+
                                 "</div>" +
+
                                 "</div>" +
+
                                 "</div>" +
+
                                 "</div>" +
+
                                 "</body>" +
+
                                 "</html>";
+
         }
 
         private String section(String title, String contentHtml) {
+
                 return "<div style=\"margin-top:16px;\">" +
+
                                 "<div style=\"font-size:14px; font-weight:700; color:" + BRAND_DARK
+
                                 + "; margin:0 0 8px 0;\">" + safe(title) + "</div>" +
+
                                 "<div style=\"border:1px solid #e2e8f0; border-radius:12px; padding:12px; background:#ffffff;\">"
+
                                 +
+
                                 contentHtml +
+
                                 "</div>" +
+
                                 "</div>";
+
         }
 
         private String safeNullable(String v) {
+
                 return v == null ? "" : v;
+
         }
 
         private String safe(String v) {
+
                 if (v == null) {
+
                         return "";
+
                 }
+
                 return v
+
                                 .replace("&", "&amp;")
+
                                 .replace("<", "&lt;")
+
                                 .replace(">", "&gt;")
+
                                 .replace("\"", "&quot;")
+
                                 .replace("'", "&#39;");
+
         }
+
 }
