@@ -23,12 +23,15 @@ public class EmailService {
         private final String brevoApiKey = System.getenv("BREVO_API_KEY");
         private final String fromEmail = System.getenv().getOrDefault("MAIL_FROM", "no-reply@bedaya.local");
         private final String adminEmail = System.getenv().getOrDefault("MAIL_ADMIN_TO", "mazroo.develop@gmail.com");
+        private final String publicLogoUrl = System.getenv().getOrDefault("MAIL_LOGO_URL", "");
 
         private static final String BRAND_DARK = "#0f172a";
         private static final String BRAND_TEXT = "#0f172a";
         private static final String BRAND_MUTED = "#64748b";
         private static final String BRAND_BG = "#f8fafc";
         private static final String BRAND_CARD = "#ffffff";
+
+        private static final String LOGO_CID = "bedaya-logo";
 
         private static final String LOGO_BASE64_PNG = "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";
 
@@ -99,7 +102,7 @@ public class EmailService {
                         throw new IllegalStateException("BREVO_API_KEY is not set");
                 }
 
-                String payload = buildBrevoPayload(to, fromEmail, subject, text, html);
+                String payload = buildBrevoPayload(to, fromEmail, subject, text, html, true);
 
                 HttpClient client = HttpClient.newHttpClient();
                 HttpRequest request = HttpRequest.newBuilder()
@@ -122,14 +125,26 @@ public class EmailService {
                 }
         }
 
-        private String buildBrevoPayload(String toEmail, String fromEmail, String subject, String text, String html) {
+        private String buildBrevoPayload(String toEmail, String fromEmail, String subject, String text, String html,
+                        boolean includeInlineLogo) {
                 String safeHtml = html == null ? "" : html;
+                String attachments = "";
+                if (includeInlineLogo) {
+                        attachments = ",\"attachment\":[{" +
+                                        "\"content\":\"" + LOGO_BASE64_PNG + "\"," +
+                                        "\"name\":\"bedaya-logo.png\"," +
+                                        "\"contentType\":\"image/png\"," +
+                                        "\"contentId\":\"" + LOGO_CID + "\"" +
+                                        "}]";
+                }
+
                 return "{" +
                                 "\"sender\":{\"email\":\"" + jsonEscape(fromEmail) + "\"}," +
                                 "\"to\":[{\"email\":\"" + jsonEscape(toEmail) + "\"}]," +
                                 "\"subject\":\"" + jsonEscape(subject) + "\"," +
                                 "\"textContent\":\"" + jsonEscape(text) + "\"," +
                                 "\"htmlContent\":\"" + jsonEscape(safeHtml) + "\"" +
+                                attachments +
                                 "}";
         }
 
@@ -295,13 +310,45 @@ public class EmailService {
                                                 { "Land", safeNullable(contactRequest.getCountry()) },
                                                 { "Service", safeNullable(contactRequest.getService()) }
                                 }) +
-                                section("Nachricht", "<p style=\"margin:0; white-space:pre-wrap;\">"
-                                                + safe(contactRequest.getMessage()) + "</p>");
+                                section("Nachricht",
+                                                "<p style=\"margin:0; white-space:pre-wrap;\">"
+                                                                + safe(contactRequest.getMessage())
+                                                                + "</p>");
                 return wrapEmailHtml(title, body);
         }
 
+        private String detailsTable(String[][] rows) {
+                StringBuilder sb = new StringBuilder();
+                sb.append(
+                                "<table role=\"presentation\" cellpadding=\"0\" cellspacing=\"0\" width=\"100%\" style=\"border-collapse:separate; border-spacing:0; border:1px solid #e2e8f0; border-radius:12px; overflow:hidden;\">");
+                for (int i = 0; i < rows.length; i++) {
+                        String label = rows[i][0];
+                        String value = rows[i][1];
+                        if (value == null || value.isBlank()) {
+                                continue;
+                        }
+                        sb.append("<tr>");
+                        sb.append(
+                                        "<td style=\"padding:10px 12px; background:#f8fafc; color:" + BRAND_MUTED
+                                                        + "; font-size:12px; width:34%; border-bottom:1px solid #e2e8f0;\">")
+                                        .append(safe(label))
+                                        .append("</td>");
+                        sb.append(
+                                        "<td style=\"padding:10px 12px; background:#ffffff; color:" + BRAND_TEXT
+                                                        + "; font-size:13px; border-bottom:1px solid #e2e8f0;\">")
+                                        .append(safe(value))
+                                        .append("</td>");
+                        sb.append("</tr>");
+                }
+                sb.append("</table>");
+                return sb.toString();
+        }
+
         private String wrapEmailHtml(String title, String innerHtml) {
-                String logoDataUri = "data:image/png;base64," + LOGO_BASE64_PNG;
+                String logoSrc = "cid:" + LOGO_CID;
+                if (publicLogoUrl != null && !publicLogoUrl.isBlank()) {
+                        logoSrc = safe(publicLogoUrl);
+                }
                 return "<!doctype html>" +
                                 "<html lang=\"ar\" dir=\"rtl\">" +
                                 "<head>" +
@@ -315,10 +362,11 @@ public class EmailService {
                                 + "; border:1px solid #e2e8f0; border-radius:14px; overflow:hidden;\">" +
                                 "<div style=\"padding:20px 24px; background:linear-gradient(135deg, " + BRAND_DARK
                                 + " 0%, #1e3a8a 100%);\">" +
-                                "<table role=\"presentation\" cellpadding=\"0\" cellspacing=\"0\" width=\"100%\">" +
+                                "<table role=\"presentation\" cellpadding=\"0\" cellspacing=\"0\" width=\"100%\">"
+                                +
                                 "<tr>" +
                                 "<td style=\"vertical-align:middle;\">" +
-                                "<img src=\"" + logoDataUri
+                                "<img src=\"" + logoSrc
                                 + "\" alt=\"Bedaya\" width=\"56\" height=\"56\" style=\"display:block; width:56px; height:56px;\">"
                                 +
                                 "</td>" +
@@ -335,7 +383,8 @@ public class EmailService {
                                 + ";\">" + safe(title) + "</div>" +
                                 innerHtml +
                                 "</div>" +
-                                "<div style=\"padding:16px 24px; border-top:1px solid #e2e8f0; background:#f1f5f9;\">" +
+                                "<div style=\"padding:16px 24px; border-top:1px solid #e2e8f0; background:#f1f5f9;\">"
+                                +
                                 "<div style=\"color:" + BRAND_MUTED + "; font-size:12px; line-height:1.6;\">" +
                                 "فريق بداية — شريكك في التعليم<br>" +
                                 "<span style=\"direction:ltr; unicode-bidi:bidi-override;\">info@studentenhilfe.de</span>"
@@ -346,30 +395,6 @@ public class EmailService {
                                 "</div>" +
                                 "</body>" +
                                 "</html>";
-        }
-
-        private String detailsTable(String[][] rows) {
-                StringBuilder sb = new StringBuilder();
-                sb.append("<table role=\"presentation\" cellpadding=\"0\" cellspacing=\"0\" width=\"100%\" style=\"border-collapse:separate; border-spacing:0; border:1px solid #e2e8f0; border-radius:12px; overflow:hidden;\">");
-                for (int i = 0; i < rows.length; i++) {
-                        String label = rows[i][0];
-                        String value = rows[i][1];
-                        if (value == null || value.isBlank()) {
-                                continue;
-                        }
-                        sb.append("<tr>");
-                        sb.append("<td style=\"padding:10px 12px; background:#f8fafc; color:" + BRAND_MUTED
-                                        + "; font-size:12px; width:34%; border-bottom:1px solid #e2e8f0;\">")
-                                        .append(safe(label))
-                                        .append("</td>");
-                        sb.append("<td style=\"padding:10px 12px; background:#ffffff; color:" + BRAND_TEXT
-                                        + "; font-size:13px; border-bottom:1px solid #e2e8f0;\">")
-                                        .append(safe(value))
-                                        .append("</td>");
-                        sb.append("</tr>");
-                }
-                sb.append("</table>");
-                return sb.toString();
         }
 
         private String section(String title, String contentHtml) {
