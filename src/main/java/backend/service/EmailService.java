@@ -48,7 +48,7 @@ public class EmailService {
                 // Send confirmation email to user
                 sendEmail(
                                 contactRequest.getEmail(),
-                                "Wir haben deine Nachricht erhalten - Bedaya",
+                                "تم استلام رسالتك بنجاح - بداية",
                                 buildContactConfirmationText(contactRequest));
         }
 
