@@ -44,6 +44,12 @@ public class EmailService {
                 String subject = "Neue Kontaktanfrage von: " + contactRequest.getName();
                 String text = buildEmailText(contactRequest);
                 sendEmail(adminEmail, subject, text);
+
+                // Send confirmation email to user
+                sendEmail(
+                                contactRequest.getEmail(),
+                                "Wir haben deine Nachricht erhalten - Bedaya",
+                                buildContactConfirmationText(contactRequest));
         }
 
         public void sendBookingEmail(BookingRequest bookingRequest) {
@@ -145,6 +151,28 @@ public class EmailService {
                                 bookingRequest.getPhone(),
                                 bookingRequest.getDesiredService(),
                                 bookingRequest.getStudyLevel());
+        }
+
+        private String buildContactConfirmationText(ContactRequest contactRequest) {
+                return String.format(
+                                "شكراً لتواصلك مع بداية!\n\n" +
+                                                "لقد استلمنا رسالتك بنجاح وسنتواصل معك في أقرب وقت ممكن.\n\n" +
+                                                "بياناتك:\n" +
+                                                "الاسم: %s\n" +
+                                                "البريد الإلكتروني: %s\n" +
+                                                "%s" +
+                                                "%s" +
+                                                "الرسالة:\n%s\n\n" +
+                                                "فريق بداية",
+                                contactRequest.getName(),
+                                contactRequest.getEmail(),
+                                contactRequest.getPhone() == null || contactRequest.getPhone().isBlank()
+                                                ? ""
+                                                : "الهاتف: " + contactRequest.getPhone() + "\n",
+                                contactRequest.getService() == null || contactRequest.getService().isBlank()
+                                                ? ""
+                                                : "الخدمة: " + contactRequest.getService() + "\n",
+                                contactRequest.getMessage());
         }
 
         private String buildBookingAdminText(BookingRequest bookingRequest) {
