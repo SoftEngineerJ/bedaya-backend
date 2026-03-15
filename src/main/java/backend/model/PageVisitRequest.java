@@ -18,7 +18,6 @@ public class PageVisitRequest {
     @NotBlank(message = "User agent is required")
     private String userAgent;
 
-    @NotBlank(message = "IP address is required")
     private String ipAddress;
 
     private String referrer;
