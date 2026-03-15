@@ -298,7 +298,7 @@ public class EmailService {
 
                                                 "- تحديد موعد الاستشارة الأولى\n\n" +
 
-                                                "info@bedaya-study.com",
+                                                "bedaya.study@web.de",
 
                                 bookingRequest.getFirstName(),
 
@@ -708,7 +708,7 @@ public class EmailService {
 
                                 "فريق بداية — شريكك في التعليم<br>" +
 
-                                "<span style=\"direction:ltr; unicode-bidi:bidi-override;\">info@bedaya-study.com</span>"
+                                "<span style=\"direction:ltr; unicode-bidi:bidi-override;\">bedaya.study@web.de</span>"
 
                                 +
 
