@@ -209,7 +209,6 @@ public class EmailService {
         }
 
         private String buildBrevoPayload(String toEmail, String fromEmail, String subject, String text, String html,
-
                         boolean includeInlineLogo) {
 
                 String safeHtml = html == null ? "" : html;
@@ -235,6 +234,8 @@ public class EmailService {
                 return "{" +
 
                                 "\"sender\":{\"email\":\"" + jsonEscape(fromEmail) + "\"}," +
+
+                                "\"replyTo\":{\"email\":\"bedaya.study@web.de\"}," +
 
                                 "\"to\":[{\"email\":\"" + jsonEscape(toEmail) + "\"}]," +
 
