@@ -4,20 +4,23 @@ import backend.model.PageVisitRequest;
 import backend.service.AnalyticsService;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.util.StringUtils;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+
+import jakarta.servlet.http.HttpServletRequest;
 
 import java.util.Map;
 
 @RestController
 @RequestMapping("/api/analytics")
 @CrossOrigin(origins = {
-    "http://localhost:3000",
-    "http://localhost:3001", 
-    "http://localhost:3002",
-    "https://bedaya-study.vercel.app",
-    "https://bedayastudy.vercel.app",
-    "https://bedaya-admin.vercel.app"
+        "http://localhost:3000",
+        "http://localhost:3001",
+        "http://localhost:3002",
+        "https://bedaya-study.vercel.app",
+        "https://bedayastudy.vercel.app",
+        "https://bedaya-admin.vercel.app"
 })
 public class AnalyticsController {
 
@@ -25,8 +28,25 @@ public class AnalyticsController {
     private AnalyticsService analyticsService;
 
     @PostMapping("/track")
-    public ResponseEntity<String> trackPageVisit(@Valid @RequestBody PageVisitRequest request) {
+    public ResponseEntity<String> trackPageVisit(@Valid @RequestBody PageVisitRequest request,
+            HttpServletRequest httpRequest) {
         try {
+            if (!StringUtils.hasText(request.getIpAddress())) {
+                String forwardedFor = httpRequest.getHeader("X-Forwarded-For");
+                if (StringUtils.hasText(forwardedFor)) {
+                    request.setIpAddress(forwardedFor.split(",")[0].trim());
+                } else {
+                    request.setIpAddress(httpRequest.getRemoteAddr());
+                }
+            }
+
+            if (!StringUtils.hasText(request.getUserAgent())) {
+                String ua = httpRequest.getHeader("User-Agent");
+                if (StringUtils.hasText(ua)) {
+                    request.setUserAgent(ua);
+                }
+            }
+
             analyticsService.trackPageVisit(request);
             return ResponseEntity.ok("Page visit tracked successfully");
         } catch (Exception e) {
