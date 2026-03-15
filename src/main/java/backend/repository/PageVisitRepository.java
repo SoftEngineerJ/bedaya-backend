@@ -21,7 +21,7 @@ public interface PageVisitRepository extends JpaRepository<PageVisit, Long> {
     @Query("SELECT p.pageUrl, AVG(p.timeOnPage) FROM PageVisit p WHERE p.timestamp >= :startDate AND p.timeOnPage > 0 GROUP BY p.pageUrl ORDER BY AVG(p.timeOnPage) DESC")
     List<Object[]> getAverageTimeOnPage(@Param("startDate") LocalDateTime startDate);
 
-    @Query("SELECT FORMATDATETIME(p.timestamp, 'yyyy-MM-dd'), COUNT(p) FROM PageVisit p WHERE p.timestamp >= :startDate GROUP BY FORMATDATETIME(p.timestamp, 'yyyy-MM-dd') ORDER BY FORMATDATETIME(p.timestamp, 'yyyy-MM-dd')")
+    @Query("SELECT DATE(p.timestamp), COUNT(p) FROM PageVisit p WHERE p.timestamp >= :startDate GROUP BY DATE(p.timestamp) ORDER BY DATE(p.timestamp)")
     List<Object[]> getDailyPageViews(@Param("startDate") LocalDateTime startDate);
 
     @Query("SELECT p.pageUrl, COUNT(DISTINCT p.session.sessionId) FROM PageVisit p WHERE p.timestamp >= :startDate GROUP BY p.pageUrl ORDER BY COUNT(DISTINCT p.session.sessionId) DESC")

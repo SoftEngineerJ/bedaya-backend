@@ -30,7 +30,7 @@ public interface VisitorSessionRepository extends JpaRepository<VisitorSession, 
     @Query("SELECT v.browser, COUNT(v) FROM VisitorSession v WHERE v.firstVisit >= :startDate GROUP BY v.browser")
     List<Object[]> getVisitorsByBrowser(@Param("startDate") LocalDateTime startDate);
 
-    @Query("SELECT FORMATDATETIME(v.firstVisit, 'yyyy-MM-dd'), COUNT(v) FROM VisitorSession v WHERE v.firstVisit >= :startDate GROUP BY FORMATDATETIME(v.firstVisit, 'yyyy-MM-dd')")
+    @Query("SELECT DATE(v.firstVisit), COUNT(v) FROM VisitorSession v WHERE v.firstVisit >= :startDate GROUP BY DATE(v.firstVisit)")
     List<Object[]> getDailyVisitors(@Param("startDate") LocalDateTime startDate);
 
     @Query("SELECT HOUR(v.firstVisit), COUNT(v) FROM VisitorSession v WHERE v.firstVisit >= :startDate GROUP BY HOUR(v.firstVisit)")
