@@ -10,10 +10,12 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.net.InetAddress;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.*;
@@ -33,7 +35,11 @@ public class AnalyticsService {
     @Autowired
     private ObjectMapper objectMapper;
 
-    private static final HttpClient GEO_HTTP_CLIENT = HttpClient.newHttpClient();
+    private static final Duration GEO_CONNECT_TIMEOUT = Duration.ofMillis(500);
+    private static final Duration GEO_REQUEST_TIMEOUT = Duration.ofMillis(800);
+    private static final HttpClient GEO_HTTP_CLIENT = HttpClient.newBuilder()
+            .connectTimeout(GEO_CONNECT_TIMEOUT)
+            .build();
     private final Map<String, GeoResult> geoCache = new ConcurrentHashMap<>();
 
     public void trackPageVisit(PageVisitRequest request) {
@@ -136,6 +142,10 @@ public class AnalyticsService {
             return GeoResult.UNKNOWN;
         }
 
+        if (!isLikelyIpAddress(ip)) {
+            return GeoResult.UNKNOWN;
+        }
+
         if (isPrivateOrLocalIp(ip)) {
             return GeoResult.UNKNOWN;
         }
@@ -179,6 +189,7 @@ public class AnalyticsService {
             HttpRequest httpRequest = HttpRequest.newBuilder()
                     .uri(URI.create("https://ipapi.co/" + ip + "/json/"))
                     .header("accept", "application/json")
+                    .timeout(GEO_REQUEST_TIMEOUT)
                     .GET()
                     .build();
 
@@ -204,6 +215,15 @@ public class AnalyticsService {
             return new GeoResult(countryStr, cityStr);
         } catch (Exception e) {
             return GeoResult.UNKNOWN;
+        }
+    }
+
+    private boolean isLikelyIpAddress(String value) {
+        try {
+            InetAddress.getByName(value);
+            return true;
+        } catch (Exception ignored) {
+            return false;
         }
     }
 
