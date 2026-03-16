@@ -10,14 +10,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.net.URI;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 @Service
@@ -32,9 +27,6 @@ public class AnalyticsService {
 
     @Autowired
     private ObjectMapper objectMapper;
-
-    private static final HttpClient GEO_HTTP_CLIENT = HttpClient.newHttpClient();
-    private final Map<String, GeoResult> geoCache = new ConcurrentHashMap<>();
 
     public void trackPageVisit(PageVisitRequest request) {
         // Get or create session
@@ -125,90 +117,17 @@ public class AnalyticsService {
     }
 
     private void parseLocationFromIp(String ipAddress, VisitorSession session) {
-        GeoResult geo = resolveGeoFromIp(ipAddress);
-        session.setCountry(geo.country());
-        session.setCity(geo.city());
-    }
-
-    private GeoResult resolveGeoFromIp(String ipAddress) {
-        String ip = ipAddress == null ? "" : ipAddress.trim();
-        if (ip.isBlank()) {
-            return GeoResult.UNKNOWN;
+        // Simplified location detection - in production use proper IP geolocation
+        // service
+        // For now, just set some default values or use a simple mapping
+        if (ipAddress.startsWith("127.") || ipAddress.startsWith("192.168.") || ipAddress.startsWith("10.")) {
+            session.setCountry("Germany");
+            session.setCity("Berlin");
+        } else {
+            // In production, integrate with MaxMind GeoIP2 or similar service
+            session.setCountry("Unknown");
+            session.setCity("Unknown");
         }
-
-        if (isPrivateOrLocalIp(ip)) {
-            return GeoResult.UNKNOWN;
-        }
-
-        GeoResult cached = geoCache.get(ip);
-        if (cached != null) {
-            return cached;
-        }
-
-        GeoResult resolved = fetchGeoFromIpApi(ip);
-        geoCache.put(ip, resolved);
-        return resolved;
-    }
-
-    private boolean isPrivateOrLocalIp(String ip) {
-        return ip.startsWith("127.")
-                || ip.startsWith("10.")
-                || ip.startsWith("192.168.")
-                || ip.startsWith("172.16.")
-                || ip.startsWith("172.17.")
-                || ip.startsWith("172.18.")
-                || ip.startsWith("172.19.")
-                || ip.startsWith("172.20.")
-                || ip.startsWith("172.21.")
-                || ip.startsWith("172.22.")
-                || ip.startsWith("172.23.")
-                || ip.startsWith("172.24.")
-                || ip.startsWith("172.25.")
-                || ip.startsWith("172.26.")
-                || ip.startsWith("172.27.")
-                || ip.startsWith("172.28.")
-                || ip.startsWith("172.29.")
-                || ip.startsWith("172.30.")
-                || ip.startsWith("172.31.")
-                || ip.equalsIgnoreCase("localhost")
-                || ip.equals("::1");
-    }
-
-    private GeoResult fetchGeoFromIpApi(String ip) {
-        try {
-            HttpRequest httpRequest = HttpRequest.newBuilder()
-                    .uri(URI.create("https://ipapi.co/" + ip + "/json/"))
-                    .header("accept", "application/json")
-                    .GET()
-                    .build();
-
-            HttpResponse<String> response = GEO_HTTP_CLIENT.send(httpRequest, HttpResponse.BodyHandlers.ofString());
-            if (response.statusCode() < 200 || response.statusCode() >= 300) {
-                return GeoResult.UNKNOWN;
-            }
-
-            Map<?, ?> json = objectMapper.readValue(response.body(), Map.class);
-            Object countryName = json.get("country_name");
-            Object city = json.get("city");
-
-            String countryStr = countryName == null ? "Unknown" : countryName.toString().trim();
-            String cityStr = city == null ? "Unknown" : city.toString().trim();
-
-            if (countryStr.isBlank()) {
-                countryStr = "Unknown";
-            }
-            if (cityStr.isBlank()) {
-                cityStr = "Unknown";
-            }
-
-            return new GeoResult(countryStr, cityStr);
-        } catch (Exception e) {
-            return GeoResult.UNKNOWN;
-        }
-    }
-
-    private record GeoResult(String country, String city) {
-        private static final GeoResult UNKNOWN = new GeoResult("Unknown", "Unknown");
     }
 
     // Statistics methods
