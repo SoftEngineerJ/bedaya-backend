@@ -187,7 +187,7 @@ public class AnalyticsService {
     private GeoResult fetchGeoFromIpApi(String ip) {
         try {
             HttpRequest httpRequest = HttpRequest.newBuilder()
-                    .uri(URI.create("https://ipapi.co/" + ip + "/json/"))
+                    .uri(URI.create("https://ipwho.is/" + ip))
                     .header("accept", "application/json")
                     .timeout(GEO_REQUEST_TIMEOUT)
                     .GET()
@@ -199,7 +199,12 @@ public class AnalyticsService {
             }
 
             Map<?, ?> json = objectMapper.readValue(response.body(), Map.class);
-            Object countryName = json.get("country_name");
+            Object success = json.get("success");
+            if (success instanceof Boolean && !((Boolean) success)) {
+                return GeoResult.UNKNOWN;
+            }
+
+            Object countryName = json.get("country");
             Object city = json.get("city");
 
             String countryStr = countryName == null ? "Unknown" : countryName.toString().trim();
